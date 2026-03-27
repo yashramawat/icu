@@ -24,7 +24,7 @@ body.night-mode .staff-opt{background:#2a2a2a;color:#e0e0e0}body.night-mode .sta
 body.night-mode .staff-dd{background:#2a2a2a;border-color:#444}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;padding-bottom:40px}
-.hdr{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;padding:16px;text-align:center;position:sticky;top:0;z-index:100;box-shadow:0 3px 12px rgba(0,0,0,.18);position:relative;position:sticky}
+.hdr{background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;padding:16px;text-align:center;position:sticky;top:0;z-index:100;box-shadow:0 3px 12px rgba(0,0,0,.18)}
 .hdr h1{font-size:1.3rem;letter-spacing:2px;font-weight:800}
 .hdr h2{font-size:.95rem;font-weight:600;margin-top:3px;opacity:.95}
 .hdr .sub{font-size:.75rem;opacity:.8;margin-top:2px}
@@ -788,6 +788,7 @@ if(curBed&&BED_PAGES[idx].beds.indexOf(curBed)===-1){
 document.getElementById('curBedLabel').textContent='Select a bed from the grid above';
 ['staffSec','clArea','remSec','scSec','sigSec','btnSec'].forEach(function(id){document.getElementById(id).style.display='none';});
 curBed=null;
+updFloatProg();
 }
 }
 function updBedsOverview(){
@@ -831,7 +832,7 @@ btns.forEach(function(b){b.style.pointerEvents='none';b.style.opacity='.6';});
 var mainBtns=document.querySelectorAll('.shift-btns .sh-btn');
 mainBtns.forEach(function(b){b.style.pointerEvents='none';b.style.opacity='.6';});
 }
-function pickShift(el){var bs=document.querySelectorAll('.sh-btn');for(var i=0;i<bs.length;i++)bs[i].classList.remove('on');el.classList.add('on');curShift=el.getAttribute('data-s');}
+function pickShift(el){var parent=el.parentElement;var bs=parent.querySelectorAll('.sh-btn');for(var i=0;i<bs.length;i++)bs[i].classList.remove('on');el.classList.add('on');curShift=el.getAttribute('data-s');}
 
 function toggleVacant(){
 if(!curBed){showModal('\u26A0\uFE0F','No Bed','Select a bed first.');return;}
@@ -1016,8 +1017,8 @@ var na=document.getElementById('ncArea');na.innerHTML='';
 if(ncItems.length>0){var h='<div class="nc-box"><h4>Non-Compliant Items ('+ncItems.length+')</h4>';ncItems.forEach(function(nc){h+='<div class="nc-line">'+nc.e+' '+nc.sub+' <span style="color:#888;font-size:.68rem">('+nc.cat+')</span></div>';});h+='</div>';na.innerHTML=h;}
 // NC remark alert
 var ncNoRemark=0;allSubs.forEach(function(sid){if(getSubAns(sid)==='no'){var ta=document.getElementById('sr-'+sid);if(!ta||!ta.value.trim())ncNoRemark++;}});
-var alert=document.getElementById('ncRemAlert');var cntEl=document.getElementById('ncRemCount');
-if(alert&&cntEl){cntEl.textContent=ncNoRemark;alert.classList.toggle('show',ncNoRemark>0);}
+var ncAlert=document.getElementById('ncRemAlert');var cntEl=document.getElementById('ncRemCount');
+if(ncAlert&&cntEl){cntEl.textContent=ncNoRemark;ncAlert.classList.toggle('show',ncNoRemark>0);}
 }
 
 function selBed(n){
@@ -2157,11 +2158,10 @@ var list=role==='SNO'?SUPERVISORS_SNO:SUPERVISORS_NO;
 h+='<div style="font-size:.68rem;font-weight:700;color:'+(role==='SNO'?'#1565c0':'#00695c')+';padding:4px 0 4px;text-transform:uppercase;letter-spacing:.5px">'+role+'</div>';
 list.forEach(function(nm){
 var pin=curPins[nm]||'—';
-var nmSafe=nm.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 h+='<div style="background:#fff;border-radius:10px;margin-bottom:6px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px">';
-h+='<div style="flex:1;font-weight:600;font-size:.82rem">'+nm+'</div>';
-h+='<div style="font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:4px;color:#1565c0;min-width:50px;text-align:center">'+pin+'</div>';
-h+='<button onclick="resetSupPin(this.dataset.nm)" data-nm="'+nmSafe+'" style="background:#ffebee;color:#c62828;border:none;border-radius:6px;padding:6px 10px;font-size:.68rem;font-weight:700;cursor:pointer">🔄</button>';
+h+='<div style="flex:1;font-weight:600;font-size:.82rem">'+escHTML(nm)+'</div>';
+h+='<div style="font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:4px;color:#1565c0;min-width:50px;text-align:center">'+escHTML(pin)+'</div>';
+h+='<button onclick="resetSupPin(this.dataset.nm)" data-nm="'+escHTML(nm)+'" style="background:#ffebee;color:#c62828;border:none;border-radius:6px;padding:6px 10px;font-size:.68rem;font-weight:700;cursor:pointer">🔄</button>';
 h+='</div>';
 });
 });
