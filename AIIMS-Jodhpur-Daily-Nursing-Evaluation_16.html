@@ -1280,7 +1280,7 @@ rpt.innerHTML=h;setTimeout(function(){window.print();},300);
 
 function confirmClr(){showModal('\u26A0\uFE0F','Clear All Data?','This removes all evaluation data.',true,function(){clearSessionData();bedData={};curBed=null;curShift='';localStorage.removeItem(SK+'_data');renderGrid();updSum();['staffSec','remSec','scSec','sigSec','btnSec'].forEach(function(id){document.getElementById(id).style.display='none';});document.getElementById('clArea').style.display='none';document.getElementById('curBedLabel').textContent='Select a bed from the grid above';allSubs.forEach(function(sid){setSubAns(sid,null);});updCatBadges();updFloatProg();var db=document.getElementById('roundDoneBar');if(db)db.style.display='none';closeModal();showModal('\u2705','Cleared','All data cleared.');});}
 
-function showModal(ic,ti,mg,confirm,cb,cbCancel,lblOk,lblCancel){document.getElementById('modIc').textContent=ic;document.getElementById('modTi').textContent=ti;document.getElementById('modMg').textContent=mg;var bt=document.getElementById('modBt');bt.innerHTML='';if(confirm){var yb=document.createElement('button');yb.className='modal-bt';yb.textContent=lblOk||'Yes';yb.onclick=cb;var nb=document.createElement('button');nb.className='modal-bt cancel';nb.textContent=lblCancel||'Cancel';nb.onclick=cbCancel||closeModal;bt.appendChild(yb);bt.appendChild(nb);}else{var ob=document.createElement('button');ob.className='modal-bt';ob.textContent='OK';ob.onclick=closeModal;bt.appendChild(ob);}document.getElementById('modOv').classList.add('show');}
+function showModal(ic,ti,mg,confirm,cb,cbCancel,lblOk,lblCancel){document.getElementById('modIc').textContent=ic;document.getElementById('modTi').textContent=ti;document.getElementById('modMg').innerHTML=mg;var bt=document.getElementById('modBt');bt.innerHTML='';if(confirm){var yb=document.createElement('button');yb.className='modal-bt';yb.textContent=lblOk||'Yes';yb.onclick=cb;var nb=document.createElement('button');nb.className='modal-bt cancel';nb.textContent=lblCancel||'Cancel';nb.onclick=cbCancel||closeModal;bt.appendChild(yb);bt.appendChild(nb);}else{var ob=document.createElement('button');ob.className='modal-bt';ob.textContent='OK';ob.onclick=closeModal;bt.appendChild(ob);}document.getElementById('modOv').classList.add('show');}
 function closeModal(){document.getElementById('modOv').classList.remove('show');}
 
 function initSig(){var c=document.getElementById('sigC');sigCtx=c.getContext('2d');sigCtx.strokeStyle='#333';sigCtx.lineWidth=2;sigCtx.lineCap='round';function pos(e){var r=c.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)};}function dn(e){e.preventDefault();sigDraw=true;var p=pos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);sigHas=true;document.getElementById('sigPh').style.display='none';}function mv(e){if(!sigDraw)return;e.preventDefault();var p=pos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();}function up(){sigDraw=false;}c.addEventListener('mousedown',dn);c.addEventListener('mousemove',mv);c.addEventListener('mouseup',up);c.addEventListener('mouseleave',up);c.addEventListener('touchstart',dn,{passive:false});c.addEventListener('touchmove',mv,{passive:false});c.addEventListener('touchend',up);}
@@ -2234,8 +2234,6 @@ body.innerHTML=h;
 var icPeriod='today';
 var icRangeFrom='';
 var icRangeTo='';
-var icStaffViewYr=new Date().getFullYear();
-var icStaffViewMo=new Date().getMonth();
 
 function icSelectPeriod(p){
 icPeriod=p;
@@ -2342,11 +2340,11 @@ html+='</tbody></table>';
 
 else if(type==='staff'){
 var staffMap={};
-rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-var arr=Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;});
+rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+var arr=Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;});
 html+='<h2>🧑‍⚕️ Staff Report</h2><table><thead><tr><th>#</th><th>Staff Name</th><th>Checks</th><th>NCs</th><th>Compliance %</th><th>Status</th></tr></thead><tbody>';
 arr.forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var cls=pct>=80?'good':pct>=60?'warn':'bad';
 var status=pct>=80?'Good':pct>=60?'Average':'Review';
 html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td><td class="'+cls+'">'+status+'</td></tr>';
@@ -2376,12 +2374,12 @@ supArr.sort(function(a,b){return (b.sumPct/b.rounds)-(a.sumPct/a.rounds);});
 if(supArr.length>0){var bs=supArr[0];var bAvg=Math.round(bs.sumPct/bs.rounds);html+='<h2>🥇 Best Supervisor</h2><p><b>'+bs.name+'</b> — '+bAvg+'% avg compliance, '+bs.rounds+' rounds, '+bs.nc+' NCs, '+bs.remarks+' remarks</p>';}
 supArr.sort(function(a,b){return (b.nc+b.remarks)-(a.nc+a.remarks);});
 if(supArr.length>0){var bt=supArr[0];html+='<h2>📝 Most Thorough Supervisor</h2><p><b>'+bt.name+'</b> — '+bt.nc+' NCs + '+bt.remarks+' remarks = '+(bt.nc+bt.remarks)+' total</p>';}
-var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-var staffArr=Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;});
+var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+var staffArr=Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;});
 if(staffArr.length>0){
-var bst=staffArr[0];var bpct=bst.totalItems>0?Math.round((1-bst.nc/bst.totalItems)*100):100;
+var bst=staffArr[0];var bpct=bst.appearances>0?Math.round(bst.totalPct/bst.appearances):100;
 html+='<h2>🥇 Best Staff & Rankings</h2><table><thead><tr><th>#</th><th>Name</th><th>Checks</th><th>NCs</th><th>Compliance</th></tr></thead><tbody>';
-staffArr.forEach(function(s,i){var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;var cls=pct>=80?'good':pct>=60?'warn':'bad';html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td></tr>';});
+staffArr.forEach(function(s,i){var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;var cls=pct>=80?'good':pct>=60?'warn':'bad';html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td></tr>';});
 html+='</tbody></table>';
 }
 }
@@ -2408,8 +2406,8 @@ rows.push(['']);
 
 if(type==='staff'||type==='best'){
 rows.push(['STAFF REPORT'],['Name','Checks','NCs','Compliance %','Status']);
-var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;}).forEach(function(s){var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;rows.push([s.name,s.appearances,s.nc,pct+'%',pct>=80?'Good':pct>=60?'Average':'Review']);});
+var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;}).forEach(function(s){var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;rows.push([s.name,s.appearances,s.nc,pct+'%',pct>=80?'Good':pct>=60?'Average':'Review']);});
 rows.push(['']);
 }
 
@@ -2473,22 +2471,22 @@ if(!r.beds)return;
 r.beds.forEach(function(bed){
 if(!bed.staff||bed.staff.length<2)return;
 var nm=bed.staff;
-if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};
+if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,totalPct:0,nc:0};
 staffMap[nm].appearances++;
-staffMap[nm].nc+=(bed.totalNC||0);
-staffMap[nm].totalItems+=(bed.totalItems||8);
+staffMap[nm].totalPct+=(bed.pct||0);
+staffMap[nm].nc+=(bed.nc||0);
 });
 });
 var arr=Object.values(staffMap).filter(function(s){return s.appearances>0;});
 arr.sort(function(a,b){
-var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;
-var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;
+var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;
+var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;
 return pb-pa;
 });
 if(arr.length===0)return icEmptyMsg();
 var h='<div style="font-size:.75rem;font-weight:700;color:#00695c;margin-bottom:8px;padding-top:4px">🧑‍⚕️ Staff Report — '+icPeriodLabel()+'</div>';
 arr.forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var clr=pct>=80?'#43a047':pct>=60?'#f57f17':'#e53935';
 var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
 h+='<div style="background:#fff;border-radius:10px;margin-bottom:6px;padding:10px 12px;box-shadow:0 1px 5px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px">';
@@ -2582,19 +2580,19 @@ if(!r.beds)return;
 r.beds.forEach(function(bed){
 if(!bed.staff||bed.staff.length<2)return;
 var nm=bed.staff;
-if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};
-staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);
+if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};
+staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);
 });
 });
 var staffArr=Object.values(staffMap).filter(function(s){return s.appearances>=2;});
 if(staffArr.length>0){
 staffArr.sort(function(a,b){
-var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;
-var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;
+var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;
+var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;
 return pb-pa;
 });
 var bs=staffArr[0];
-var bpct=bs.totalItems>0?Math.round((1-bs.nc/bs.totalItems)*100):100;
+var bpct=bs.appearances>0?Math.round(bs.totalPct/bs.appearances):100;
 h+='<div style="background:linear-gradient(135deg,#e0f2f1,#b2dfdb);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,105,92,.12);border:2px solid #80cbc4">';
 h+='<div style="font-size:.68rem;font-weight:700;color:#00695c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🥇 Best Staff (Compliance)</div>';
 h+='<div style="display:flex;align-items:center;gap:10px">';
@@ -2608,7 +2606,7 @@ h+='</div></div>';
 h+='<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 5px rgba(0,0,0,.07)">';
 h+='<div style="font-size:.7rem;font-weight:700;color:#9e9e9e;margin-bottom:8px;text-transform:uppercase">Staff Compliance Ranking</div>';
 staffArr.slice(0,Math.min(staffArr.length,10)).forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var clr=pct>=80?'#43a047':pct>=60?'#f57f17':'#e53935';
 var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '+(i+1)+'.';
 h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5">';
