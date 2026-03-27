@@ -446,7 +446,7 @@ body{padding:0;background:#fff;font-size:10pt}
 
 <div class="sec no-print" id="sumSec">
 <div class="sec-h">&#128202; Supervision Report &mdash; <span id="sumTxt">0 completed</span></div>
-<div id="roundDoneBar" style="display:none;padding:10px 14px 4px;display:none">
+<div id="roundDoneBar" style="display:none;padding:10px 14px 4px">
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
 <button class="act-b" style="background:linear-gradient(135deg,#00695c,#00897b);padding:11px 8px;font-size:.82rem" onclick="startNewRound()">&#128260; New Round</button>
 <button class="act-b" style="background:linear-gradient(135deg,#37474f,#546e7a);padding:11px 8px;font-size:.82rem" onclick="backToMenu()">&#127968; Main Menu</button>
@@ -1202,8 +1202,9 @@ showModal('\u2705','CSV Exported','Supervision report downloaded successfully.')
 }
 
 function shareEmail(){
-var email=document.getElementById('shareEmail').value.trim();
-if(!email){showModal('\u26A0\uFE0F','No Email','Please enter an email ID to share.');return;}
+var email=prompt('Enter email address for supervision report:','');
+if(!email||!email.trim()){return;}
+email=email.trim();
 saveRound();var ri={date:document.getElementById('rDate').value,name:document.getElementById('rName').value.trim(),desig:document.getElementById('rDesig').value,ward:document.getElementById('rWard').value};
 var done=0,tY=0,tT=0;var ncStaff=[],okNames=[];
 BEDS.forEach(function(n){if(!bedData[n]||bedData[n].vacant)return;done++;var d=bedData[n];tY+=(d.yes||0);tT+=(d.total||0);
@@ -1285,7 +1286,7 @@ if(sigHas){h+='<div class="rpt-sig"><p><b>Evaluator Signature:</b></p><img src="
 rpt.innerHTML=h;setTimeout(function(){window.print();},300);
 }
 
-function confirmClr(){showModal('\u26A0\uFE0F','Clear All Data?','This removes all evaluation data.',true,function(){clearSessionData();bedData={};curBed=null;curShift='';localStorage.removeItem(SK+'_data');renderGrid();updSum();['staffSec','remSec','scSec','sigSec','btnSec'].forEach(function(id){document.getElementById(id).style.display='none';});document.getElementById('clArea').style.display='none';document.getElementById('curBedLabel').textContent='Select a bed from the grid above';allSubs.forEach(function(sid){setSubAns(sid,null);});updCatBadges();updFloatProg();var db=document.getElementById('roundDoneBar');if(db)db.style.display='none';closeModal();showModal('\u2705','Cleared','All data cleared.');});}
+function confirmClr(){showModal('\u26A0\uFE0F','Clear All Data?','This removes all evaluation data.',true,function(){clearSessionData();bedData={};curBed=null;curShift='';localStorage.removeItem(SK+'_data');renderGrid();updSum();['staffSec','remSec','scSec','sigSec','btnSec'].forEach(function(id){document.getElementById(id).style.display='none';});document.getElementById('clArea').style.display='none';document.getElementById('curBedLabel').textContent='Select a bed from the grid above';allSubs.forEach(function(sid){setSubAns(sid,null);});updCatBadges();updFloatProg();var db=document.getElementById('roundDoneBar');if(db)db.style.display='none';closeModal();showModal('\u2705','Cleared','All data cleared.');},function(){closeModal();});}
 
 function showModal(ic,ti,mg,confirm,cb,cbCancel,lblOk,lblCancel){document.getElementById('modIc').textContent=ic;document.getElementById('modTi').textContent=ti;document.getElementById('modMg').innerHTML=mg;var bt=document.getElementById('modBt');bt.innerHTML='';if(confirm){var yb=document.createElement('button');yb.className='modal-bt';yb.textContent=lblOk||'Yes';yb.onclick=cb;var nb=document.createElement('button');nb.className='modal-bt cancel';nb.textContent=lblCancel||'Cancel';nb.onclick=cbCancel||closeModal;bt.appendChild(yb);bt.appendChild(nb);}else{var ob=document.createElement('button');ob.className='modal-bt';ob.textContent='OK';ob.onclick=closeModal;bt.appendChild(ob);}document.getElementById('modOv').classList.add('show');}
 function closeModal(){document.getElementById('modOv').classList.remove('show');}
