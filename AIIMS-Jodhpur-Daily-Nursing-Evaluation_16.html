@@ -346,6 +346,7 @@ body{padding:0;background:#fff;font-size:10pt}
 </head>
 <body>
 <div class="hdr">
+<button id="backMenuBtn" onclick="confirmBackToMenu()" style="display:none;position:absolute;top:12px;left:12px;background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:.78rem;font-weight:700;cursor:pointer">← Menu</button>
 <h1>AIIMS JODHPUR</h1>
 <h2>Daily Nursing Evaluation</h2>
 <div class="sub">Clinical Round &mdash; Nursing Assessment Tool</div>
@@ -1367,6 +1368,7 @@ localStorage.removeItem(SK+'_data');
 // Hide setup overlay and enter supervision
 APP_MODE='supervision';
 updModeBar();
+var bb=document.getElementById('backMenuBtn');if(bb)bb.style.display='';
 document.getElementById('supSetupOv').classList.remove('show');
 document.getElementById('panelOv').classList.remove('show');
 lockRoundHeader();
@@ -1548,8 +1550,18 @@ document.getElementById('icOv').classList.remove('show');
 document.getElementById('pwOv').classList.remove('show');
 document.getElementById('supSetupOv').classList.remove('show');
 document.getElementById('panelOv').classList.add('show');
+var bb=document.getElementById('backMenuBtn');if(bb)bb.style.display='none';
 APP_MODE='';
 updModeBar();
+}
+
+function confirmBackToMenu(){
+var hasData=Object.keys(bedData).some(function(k){return bedData[k]&&!bedData[k].vacant;});
+if(hasData){
+showModal('\u26A0\uFE0F','Leave Round?','You have unsaved bed data. Going back will NOT delete your progress — you can resume later.',true,function(){closeModal();backToMenu();},function(){closeModal();},'← Go Back','Stay');
+}else{
+backToMenu();
+}
 }
 
 function saveHistory(){
