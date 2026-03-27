@@ -335,6 +335,13 @@ body{padding:0;background:#fff;font-size:10pt}
 /* LOCKED ROUND FIELDS */
 .field-locked{background:#e0f2f1!important;color:var(--pri3)!important;font-weight:700!important;cursor:not-allowed!important;opacity:.9;pointer-events:none}
 .round-lock-info{display:none;background:#e8f5e9;border:2px solid #81c784;border-radius:8px;padding:7px 12px;margin-top:8px;font-size:.78rem;font-weight:600;color:#2e7d32;text-align:center;letter-spacing:.2px}
+/* CLOUD SYNC */
+.sync-toast{position:fixed;bottom:14px;right:14px;z-index:9990;display:none;padding:8px 16px;border-radius:10px;font-size:.75rem;font-weight:700;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);animation:pop .25s ease-out;max-width:280px}
+.sync-toast.st-ok{background:#2e7d32;display:block}
+.sync-toast.st-err{background:#c62828;display:block}
+.sync-toast.st-load{background:#1565c0;display:block}
+.cloud-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:8px;font-size:.62rem;font-weight:700;margin-left:6px}
+.cloud-on{background:#e8f5e9;color:#2e7d32}.cloud-off{background:#ffebee;color:#c62828}
 </style>
 </head>
 <body>
@@ -1280,7 +1287,7 @@ rpt.innerHTML=h;setTimeout(function(){window.print();},300);
 
 function confirmClr(){showModal('\u26A0\uFE0F','Clear All Data?','This removes all evaluation data.',true,function(){clearSessionData();bedData={};curBed=null;curShift='';localStorage.removeItem(SK+'_data');renderGrid();updSum();['staffSec','remSec','scSec','sigSec','btnSec'].forEach(function(id){document.getElementById(id).style.display='none';});document.getElementById('clArea').style.display='none';document.getElementById('curBedLabel').textContent='Select a bed from the grid above';allSubs.forEach(function(sid){setSubAns(sid,null);});updCatBadges();updFloatProg();var db=document.getElementById('roundDoneBar');if(db)db.style.display='none';closeModal();showModal('\u2705','Cleared','All data cleared.');});}
 
-function showModal(ic,ti,mg,confirm,cb,cbCancel,lblOk,lblCancel){document.getElementById('modIc').textContent=ic;document.getElementById('modTi').textContent=ti;document.getElementById('modMg').textContent=mg;var bt=document.getElementById('modBt');bt.innerHTML='';if(confirm){var yb=document.createElement('button');yb.className='modal-bt';yb.textContent=lblOk||'Yes';yb.onclick=cb;var nb=document.createElement('button');nb.className='modal-bt cancel';nb.textContent=lblCancel||'Cancel';nb.onclick=cbCancel||closeModal;bt.appendChild(yb);bt.appendChild(nb);}else{var ob=document.createElement('button');ob.className='modal-bt';ob.textContent='OK';ob.onclick=closeModal;bt.appendChild(ob);}document.getElementById('modOv').classList.add('show');}
+function showModal(ic,ti,mg,confirm,cb,cbCancel,lblOk,lblCancel){document.getElementById('modIc').textContent=ic;document.getElementById('modTi').textContent=ti;document.getElementById('modMg').innerHTML=mg;var bt=document.getElementById('modBt');bt.innerHTML='';if(confirm){var yb=document.createElement('button');yb.className='modal-bt';yb.textContent=lblOk||'Yes';yb.onclick=cb;var nb=document.createElement('button');nb.className='modal-bt cancel';nb.textContent=lblCancel||'Cancel';nb.onclick=cbCancel||closeModal;bt.appendChild(yb);bt.appendChild(nb);}else{var ob=document.createElement('button');ob.className='modal-bt';ob.textContent='OK';ob.onclick=closeModal;bt.appendChild(ob);}document.getElementById('modOv').classList.add('show');}
 function closeModal(){document.getElementById('modOv').classList.remove('show');}
 
 function initSig(){var c=document.getElementById('sigC');sigCtx=c.getContext('2d');sigCtx.strokeStyle='#333';sigCtx.lineWidth=2;sigCtx.lineCap='round';function pos(e){var r=c.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return{x:(t.clientX-r.left)*(c.width/r.width),y:(t.clientY-r.top)*(c.height/r.height)};}function dn(e){e.preventDefault();sigDraw=true;var p=pos(e);sigCtx.beginPath();sigCtx.moveTo(p.x,p.y);sigHas=true;document.getElementById('sigPh').style.display='none';}function mv(e){if(!sigDraw)return;e.preventDefault();var p=pos(e);sigCtx.lineTo(p.x,p.y);sigCtx.stroke();}function up(){sigDraw=false;}c.addEventListener('mousedown',dn);c.addEventListener('mousemove',mv);c.addEventListener('mouseup',up);c.addEventListener('mouseleave',up);c.addEventListener('touchstart',dn,{passive:false});c.addEventListener('touchmove',mv,{passive:false});c.addEventListener('touchend',up);}
@@ -2234,8 +2241,6 @@ body.innerHTML=h;
 var icPeriod='today';
 var icRangeFrom='';
 var icRangeTo='';
-var icStaffViewYr=new Date().getFullYear();
-var icStaffViewMo=new Date().getMonth();
 
 function icSelectPeriod(p){
 icPeriod=p;
@@ -2342,11 +2347,11 @@ html+='</tbody></table>';
 
 else if(type==='staff'){
 var staffMap={};
-rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-var arr=Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;});
+rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+var arr=Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;});
 html+='<h2>🧑‍⚕️ Staff Report</h2><table><thead><tr><th>#</th><th>Staff Name</th><th>Checks</th><th>NCs</th><th>Compliance %</th><th>Status</th></tr></thead><tbody>';
 arr.forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var cls=pct>=80?'good':pct>=60?'warn':'bad';
 var status=pct>=80?'Good':pct>=60?'Average':'Review';
 html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td><td class="'+cls+'">'+status+'</td></tr>';
@@ -2376,12 +2381,12 @@ supArr.sort(function(a,b){return (b.sumPct/b.rounds)-(a.sumPct/a.rounds);});
 if(supArr.length>0){var bs=supArr[0];var bAvg=Math.round(bs.sumPct/bs.rounds);html+='<h2>🥇 Best Supervisor</h2><p><b>'+bs.name+'</b> — '+bAvg+'% avg compliance, '+bs.rounds+' rounds, '+bs.nc+' NCs, '+bs.remarks+' remarks</p>';}
 supArr.sort(function(a,b){return (b.nc+b.remarks)-(a.nc+a.remarks);});
 if(supArr.length>0){var bt=supArr[0];html+='<h2>📝 Most Thorough Supervisor</h2><p><b>'+bt.name+'</b> — '+bt.nc+' NCs + '+bt.remarks+' remarks = '+(bt.nc+bt.remarks)+' total</p>';}
-var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-var staffArr=Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;});
+var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+var staffArr=Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;});
 if(staffArr.length>0){
-var bst=staffArr[0];var bpct=bst.totalItems>0?Math.round((1-bst.nc/bst.totalItems)*100):100;
+var bst=staffArr[0];var bpct=bst.appearances>0?Math.round(bst.totalPct/bst.appearances):100;
 html+='<h2>🥇 Best Staff & Rankings</h2><table><thead><tr><th>#</th><th>Name</th><th>Checks</th><th>NCs</th><th>Compliance</th></tr></thead><tbody>';
-staffArr.forEach(function(s,i){var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;var cls=pct>=80?'good':pct>=60?'warn':'bad';html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td></tr>';});
+staffArr.forEach(function(s,i){var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;var cls=pct>=80?'good':pct>=60?'warn':'bad';html+='<tr><td>'+(i+1)+'</td><td>'+s.name+'</td><td>'+s.appearances+'</td><td>'+s.nc+'</td><td class="'+cls+'">'+pct+'%</td></tr>';});
 html+='</tbody></table>';
 }
 }
@@ -2408,8 +2413,8 @@ rows.push(['']);
 
 if(type==='staff'||type==='best'){
 rows.push(['STAFF REPORT'],['Name','Checks','NCs','Compliance %','Status']);
-var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);});});
-Object.values(staffMap).sort(function(a,b){var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;return pb-pa;}).forEach(function(s){var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;rows.push([s.name,s.appearances,s.nc,pct+'%',pct>=80?'Good':pct>=60?'Average':'Review']);});
+var staffMap={};rounds.forEach(function(r){if(!r.beds)return;r.beds.forEach(function(bed){if(!bed.staff||bed.staff.length<2)return;var nm=bed.staff;if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);});});
+Object.values(staffMap).sort(function(a,b){var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;return pb-pa;}).forEach(function(s){var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;rows.push([s.name,s.appearances,s.nc,pct+'%',pct>=80?'Good':pct>=60?'Average':'Review']);});
 rows.push(['']);
 }
 
@@ -2473,22 +2478,22 @@ if(!r.beds)return;
 r.beds.forEach(function(bed){
 if(!bed.staff||bed.staff.length<2)return;
 var nm=bed.staff;
-if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};
+if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,totalPct:0,nc:0};
 staffMap[nm].appearances++;
-staffMap[nm].nc+=(bed.totalNC||0);
-staffMap[nm].totalItems+=(bed.totalItems||8);
+staffMap[nm].totalPct+=(bed.pct||0);
+staffMap[nm].nc+=(bed.nc||0);
 });
 });
 var arr=Object.values(staffMap).filter(function(s){return s.appearances>0;});
 arr.sort(function(a,b){
-var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;
-var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;
+var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;
+var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;
 return pb-pa;
 });
 if(arr.length===0)return icEmptyMsg();
 var h='<div style="font-size:.75rem;font-weight:700;color:#00695c;margin-bottom:8px;padding-top:4px">🧑‍⚕️ Staff Report — '+icPeriodLabel()+'</div>';
 arr.forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var clr=pct>=80?'#43a047':pct>=60?'#f57f17':'#e53935';
 var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
 h+='<div style="background:#fff;border-radius:10px;margin-bottom:6px;padding:10px 12px;box-shadow:0 1px 5px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px">';
@@ -2582,19 +2587,19 @@ if(!r.beds)return;
 r.beds.forEach(function(bed){
 if(!bed.staff||bed.staff.length<2)return;
 var nm=bed.staff;
-if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalItems:0};
-staffMap[nm].appearances++;staffMap[nm].nc+=(bed.totalNC||0);staffMap[nm].totalItems+=(bed.totalItems||8);
+if(!staffMap[nm])staffMap[nm]={name:nm,appearances:0,nc:0,totalPct:0};
+staffMap[nm].appearances++;staffMap[nm].nc+=(bed.nc||0);staffMap[nm].totalPct+=(bed.pct||0);
 });
 });
 var staffArr=Object.values(staffMap).filter(function(s){return s.appearances>=2;});
 if(staffArr.length>0){
 staffArr.sort(function(a,b){
-var pa=a.totalItems>0?Math.round((1-a.nc/a.totalItems)*100):100;
-var pb=b.totalItems>0?Math.round((1-b.nc/b.totalItems)*100):100;
+var pa=a.appearances>0?Math.round(a.totalPct/a.appearances):100;
+var pb=b.appearances>0?Math.round(b.totalPct/b.appearances):100;
 return pb-pa;
 });
 var bs=staffArr[0];
-var bpct=bs.totalItems>0?Math.round((1-bs.nc/bs.totalItems)*100):100;
+var bpct=bs.appearances>0?Math.round(bs.totalPct/bs.appearances):100;
 h+='<div style="background:linear-gradient(135deg,#e0f2f1,#b2dfdb);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,105,92,.12);border:2px solid #80cbc4">';
 h+='<div style="font-size:.68rem;font-weight:700;color:#00695c;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">🥇 Best Staff (Compliance)</div>';
 h+='<div style="display:flex;align-items:center;gap:10px">';
@@ -2608,7 +2613,7 @@ h+='</div></div>';
 h+='<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 5px rgba(0,0,0,.07)">';
 h+='<div style="font-size:.7rem;font-weight:700;color:#9e9e9e;margin-bottom:8px;text-transform:uppercase">Staff Compliance Ranking</div>';
 staffArr.slice(0,Math.min(staffArr.length,10)).forEach(function(s,i){
-var pct=s.totalItems>0?Math.round((1-s.nc/s.totalItems)*100):100;
+var pct=s.appearances>0?Math.round(s.totalPct/s.appearances):100;
 var clr=pct>=80?'#43a047':pct>=60?'#f57f17':'#e53935';
 var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '+(i+1)+'.';
 h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5">';
@@ -2651,6 +2656,251 @@ navigator.serviceWorker.register('data:text/javascript;base64,'+btoa(
 )).catch(function(){});
 }
 init();
+
+// ============================================================
+// CLOUD SYNC — Google Sheets Backend
+// ============================================================
+var BACKEND_URL_KEY = 'aiims_backend_url';
+var DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycby-NFv9woGttm8W4N3zezeH3gYX1PhhrOCkt-jrXGBLPm0bLNnSNP7Cty8sX7bALCAn/exec';
+
+function getBackendUrl() {
+  try { return localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_BACKEND_URL; } catch(e) { return DEFAULT_BACKEND_URL; }
+}
+function setBackendUrl(url) {
+  try { localStorage.setItem(BACKEND_URL_KEY, url.trim()); } catch(e) {}
+}
+function isCloudEnabled() { return !!getBackendUrl(); }
+
+// Toast notification for sync status
+function showSyncToast(msg, type, duration) {
+  var el = document.getElementById('syncToast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'sync-toast st-' + (type || 'load');
+  if (duration !== 0) {
+    setTimeout(function() { el.className = 'sync-toast'; }, duration || 3000);
+  }
+}
+
+// ── CLOUD API CALLS ──────────────────────────────────────
+
+function cloudFetch(action, params) {
+  var url = getBackendUrl();
+  if (!url) return Promise.reject('No backend URL');
+  var qs = 'action=' + encodeURIComponent(action);
+  if (params) {
+    Object.keys(params).forEach(function(k) {
+      qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    });
+  }
+  return fetch(url + '?' + qs).then(function(r) { return r.json(); });
+}
+
+function cloudPost(action, data, extra) {
+  var url = getBackendUrl();
+  if (!url) return Promise.reject('No backend URL');
+  var body = { action: action, data: data };
+  if (extra) { Object.keys(extra).forEach(function(k) { body[k] = extra[k]; }); }
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(body),
+    redirect: 'follow'
+  }).then(function(r) { return r.json(); });
+}
+
+// ── SYNC FUNCTIONS ───────────────────────────────────────
+
+// Save round to cloud (called after saveHistory)
+function cloudSaveRound(entry) {
+  if (!isCloudEnabled()) return;
+  showSyncToast('☁️ Syncing round...', 'load', 0);
+  cloudPost('saveRound', entry).then(function(res) {
+    if (res.success) {
+      showSyncToast('☁️ Round synced to cloud!', 'ok', 3000);
+    } else {
+      showSyncToast('☁️ Sync error: ' + (res.error || 'Unknown'), 'err', 5000);
+    }
+  }).catch(function(err) {
+    showSyncToast('☁️ Sync failed: ' + err, 'err', 5000);
+  });
+}
+
+// Pull all history from cloud and merge with local
+function cloudPullHistory() {
+  if (!isCloudEnabled()) return;
+  showSyncToast('☁️ Pulling from cloud...', 'load', 0);
+  cloudFetch('getHistory').then(function(res) {
+    if (res.success && res.history) {
+      var local = loadHistory();
+      var merged = local.slice();
+      var added = 0;
+      res.history.forEach(function(r) {
+        if (!merged.some(function(x) { return x.ts === r.ts; })) {
+          merged.push(r);
+          added++;
+        }
+      });
+      if (added > 0) {
+        try { localStorage.setItem('aiims_ic_history', JSON.stringify(merged)); } catch(e) {}
+      }
+      showSyncToast('☁️ Pulled ' + res.count + ' rounds (' + added + ' new)', 'ok', 4000);
+    } else {
+      showSyncToast('☁️ Pull error: ' + (res.error || 'No data'), 'err', 5000);
+    }
+  }).catch(function(err) {
+    showSyncToast('☁️ Pull failed: ' + err, 'err', 5000);
+  });
+}
+
+// Push all local history to cloud
+function cloudPushAllHistory() {
+  if (!isCloudEnabled()) return;
+  var hist = loadHistory();
+  if (hist.length === 0) { showSyncToast('☁️ No local data to push', 'err', 3000); return; }
+  showSyncToast('☁️ Pushing ' + hist.length + ' rounds...', 'load', 0);
+  var done = 0;
+  var errors = 0;
+  function pushNext(idx) {
+    if (idx >= hist.length) {
+      showSyncToast('☁️ Pushed ' + done + '/' + hist.length + ' rounds' + (errors > 0 ? ' (' + errors + ' errors)' : ''), errors > 0 ? 'err' : 'ok', 4000);
+      return;
+    }
+    cloudPost('saveRound', hist[idx]).then(function(res) {
+      if (res.success) done++;
+      else errors++;
+      pushNext(idx + 1);
+    }).catch(function() {
+      errors++;
+      pushNext(idx + 1);
+    });
+  }
+  pushNext(0);
+}
+
+// Delete round from cloud
+function cloudDeleteRound(ts) {
+  if (!isCloudEnabled()) return;
+  cloudPost('deleteRound', null, { ts: ts }).catch(function() {});
+}
+
+// Save session to cloud
+function cloudSaveSession() {
+  if (!isCloudEnabled()) return;
+  var key = roundSessionKey();
+  if (!key) return;
+  var data = { bedData: bedData, curBed: curBed, curShift: curShift, roundElapsed: roundElapsed, ts: Date.now() };
+  cloudPost('saveSession', data, { key: key }).catch(function() {});
+}
+
+// Load session from cloud
+function cloudLoadSession(sup, shift, dt) {
+  if (!isCloudEnabled()) return Promise.resolve(null);
+  var key = 'aiims_session_' + sup.replace(/\s+/g, '_') + '_' + shift + '_' + dt;
+  return cloudFetch('getSession', { key: key }).then(function(res) {
+    return (res.success && res.data) ? res.data : null;
+  }).catch(function() { return null; });
+}
+
+// Test backend connection
+function cloudTestConnection() {
+  var url = getBackendUrl();
+  if (!url) { showSyncToast('☁️ No backend URL set', 'err', 3000); return; }
+  showSyncToast('☁️ Testing connection...', 'load', 0);
+  cloudFetch('ping').then(function(res) {
+    if (res.success) {
+      showSyncToast('☁️ Connected! ' + (res.message || ''), 'ok', 4000);
+    } else {
+      showSyncToast('☁️ Error: ' + (res.error || 'Unknown'), 'err', 5000);
+    }
+  }).catch(function(err) {
+    showSyncToast('☁️ Connection failed: ' + err, 'err', 5000);
+  });
+}
+
+// ── PATCH EXISTING FUNCTIONS TO ADD CLOUD SYNC ────────────
+
+// Patch saveHistory to also push to cloud
+var _origSaveHistory = saveHistory;
+saveHistory = function() {
+  _origSaveHistory();
+  // Get the latest entry just saved
+  var hist = loadHistory();
+  if (hist.length > 0) {
+    cloudSaveRound(hist[hist.length - 1]);
+  }
+};
+
+// Patch deleteRound to also delete from cloud
+var _origDeleteRound = deleteRound;
+deleteRound = function(ts) {
+  cloudDeleteRound(ts);
+  _origDeleteRound(ts);
+};
+
+// Patch saveSessionData to also save to cloud
+var _origSaveSessionData = saveSessionData;
+saveSessionData = function() {
+  _origSaveSessionData();
+  cloudSaveSession();
+};
+
+// ── CLOUD SETTINGS UI (injected into Incharge Settings) ───
+
+var _origIcShowSettings = icShowSettings;
+icShowSettings = function() {
+  _origIcShowSettings();
+  var body = document.getElementById('icBody');
+  if (!body) return;
+  var cloudHtml = '';
+  cloudHtml += '<div style="font-size:.75rem;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.8px;padding:14px 0 8px">☁️ Cloud Sync (Google Sheets Backend)</div>';
+  cloudHtml += '<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.08);margin-bottom:12px">';
+  var curUrl = getBackendUrl();
+  var connected = isCloudEnabled();
+  cloudHtml += '<div style="margin-bottom:8px"><span class="cloud-badge ' + (connected ? 'cloud-on' : 'cloud-off') + '">' + (connected ? '🟢 Connected' : '🔴 Not Connected') + '</span></div>';
+  cloudHtml += '<div style="font-size:.72rem;color:#757575;margin-bottom:8px">Paste your Google Apps Script Web App URL below to enable cloud sync. All rounds will be saved to Google Sheets automatically.</div>';
+  cloudHtml += '<input type="url" id="cloudUrlInp" value="' + escHTML(curUrl) + '" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;padding:10px;border:2px solid ' + (connected ? '#a5d6a7' : '#e0e0e0') + ';border-radius:8px;font-size:.82rem;background:#fafafa;margin-bottom:8px">';
+  cloudHtml += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  cloudHtml += '<button onclick="saveCloudUrl()" style="flex:1;min-width:80px;background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;border:none;border-radius:8px;padding:10px;font-size:.78rem;font-weight:700;cursor:pointer">💾 Save URL</button>';
+  cloudHtml += '<button onclick="cloudTestConnection()" style="flex:1;min-width:80px;background:linear-gradient(135deg,#00695c,#00897b);color:#fff;border:none;border-radius:8px;padding:10px;font-size:.78rem;font-weight:700;cursor:pointer">🔌 Test</button>';
+  cloudHtml += '</div>';
+  cloudHtml += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
+  cloudHtml += '<button onclick="cloudPullHistory()" style="flex:1;min-width:80px;background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff;border:none;border-radius:8px;padding:10px;font-size:.78rem;font-weight:700;cursor:pointer">⬇️ Pull from Cloud</button>';
+  cloudHtml += '<button onclick="cloudPushAllHistory()" style="flex:1;min-width:80px;background:linear-gradient(135deg,#e65100,#f57c00);color:#fff;border:none;border-radius:8px;padding:10px;font-size:.78rem;font-weight:700;cursor:pointer">⬆️ Push All to Cloud</button>';
+  cloudHtml += '</div>';
+  cloudHtml += '<div style="font-size:.68rem;color:#9e9e9e;margin-top:8px;text-align:center">Rounds sync automatically on save. Use Pull/Push for manual full sync.</div>';
+  cloudHtml += '</div>';
+  // Inject before danger zone
+  var existing = body.innerHTML;
+  var dangerIdx = existing.indexOf('Danger Zone');
+  if (dangerIdx !== -1) {
+    var insertIdx = existing.lastIndexOf('<div', dangerIdx);
+    body.innerHTML = existing.substring(0, insertIdx) + cloudHtml + existing.substring(insertIdx);
+  } else {
+    body.innerHTML += cloudHtml;
+  }
+};
+
+function saveCloudUrl() {
+  var inp = document.getElementById('cloudUrlInp');
+  if (!inp) return;
+  var url = inp.value.trim();
+  setBackendUrl(url);
+  if (url) {
+    cloudTestConnection();
+  } else {
+    showSyncToast('☁️ Backend URL cleared', 'ok', 3000);
+  }
+  // Refresh settings page
+  setTimeout(function() { icShowSettings(); }, 1500);
+}
+
+// Auto-pull from cloud on app init (if backend is configured)
+if (isCloudEnabled()) {
+  setTimeout(function() { cloudPullHistory(); }, 2000);
+}
 </script>
+<!-- Sync Toast -->
+<div class="sync-toast" id="syncToast"></div>
 </body>
 </html>
