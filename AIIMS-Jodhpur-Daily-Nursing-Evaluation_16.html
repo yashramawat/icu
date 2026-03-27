@@ -2661,9 +2661,10 @@ init();
 // CLOUD SYNC — Google Sheets Backend
 // ============================================================
 var BACKEND_URL_KEY = 'aiims_backend_url';
+var DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycby-NFv9woGttm8W4N3zezeH3gYX1PhhrOCkt-jrXGBLPm0bLNnSNP7Cty8sX7bALCAn/exec';
 
 function getBackendUrl() {
-  try { return localStorage.getItem(BACKEND_URL_KEY) || ''; } catch(e) { return ''; }
+  try { return localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_BACKEND_URL; } catch(e) { return DEFAULT_BACKEND_URL; }
 }
 function setBackendUrl(url) {
   try { localStorage.setItem(BACKEND_URL_KEY, url.trim()); } catch(e) {}
