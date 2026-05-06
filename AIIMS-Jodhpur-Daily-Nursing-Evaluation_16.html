@@ -628,9 +628,35 @@ function getSupPins(){
 // Start with fixed pins, then merge any dynamically added ones from localStorage
 var map={};for(var k in FIXED_PINS)map[k]=FIXED_PINS[k];
 try{var extra=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');
-for(var k2 in extra){if(!FIXED_PINS[k2])map[k2]=extra[k2];}
+for(var k2 in extra){
+if(!FIXED_PINS[k2]){
+// Support both formats: string PIN (old) or {pin,role} object (new)
+var v=extra[k2];
+map[k2]=(typeof v==='object' && v!==null)?(v.pin||''):v;
+}
+}
 }catch(e){}
 return map;
+}
+function getSupRole(name){
+// Helper to get role for any supervisor
+try{var extra=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');
+var v=extra[name];
+if(v && typeof v==='object')return v.role||'NO';
+}catch(e){}
+return 'NO';
+}
+function getAllStaffList(){
+// Combined list: hardcoded STAFF + custom-added supervisor names
+// Used everywhere a staff name dropdown is needed (Add Supervisor, bed assessment search, etc.)
+var combined=STAFF.slice();
+try{var extra=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');
+for(var nm in extra){
+if(combined.indexOf(nm)===-1)combined.push(nm);
+}
+}catch(e){}
+combined.sort();
+return combined;
 }
 function saveSupPins(map){
 // Only save dynamically added supervisors (not fixed ones)
@@ -755,7 +781,8 @@ var inp=document.getElementById('staffInput'),dd=document.getElementById('staffD
 function render(filter){
 dd.innerHTML='';
 var f=filter?filter.toLowerCase():'';
-var matches=STAFF.filter(function(s){return !f||s.toLowerCase().indexOf(f)!==-1;});
+var fullList=getAllStaffList(); // merged list: STAFF + custom-added supervisors
+var matches=fullList.filter(function(s){return !f||s.toLowerCase().indexOf(f)!==-1;});
 matches.forEach(function(s){
 var d=document.createElement('div');d.className='staff-opt';d.textContent=s;
 d.onclick=function(){inp.value=s;val.value=s;dd.classList.remove('open');};
@@ -1116,6 +1143,7 @@ function doSaveRound(saved){
 ls('data',bedData);updSum();
 saveHistory();
 clearSessionData();
+clearActiveRound();
 stopTimer();
 if(navigator.vibrate)navigator.vibrate([100,50,100,50,200]);
 // CLEAR bed data from localStorage immediately — next page load will be fresh
@@ -2165,26 +2193,49 @@ var h=icBackBtn('icShowHome');
 h+='<div style="padding:4px 14px 14px">';
 h+='<div style="font-size:.75rem;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:.8px;padding:8px 0 8px">🔑 Supervisor PINs</div>';
 var curPins=getSupPins();
+// Build name lists per role: fixed (from SUPERVISORS_SNO/NO) + custom (from localStorage)
+var customMap={};
+try{customMap=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');}catch(e){}
+function buildRoleList(role){
+var fixedList=(role==='SNO'?SUPERVISORS_SNO:SUPERVISORS_NO).slice();
+var customForRole=[];
+for(var nm in customMap){
+var v=customMap[nm];
+var r=(typeof v==='object'&&v!==null)?(v.role||'NO'):'NO';
+if(r===role && fixedList.indexOf(nm)===-1)customForRole.push(nm);
+}
+customForRole.sort();
+return {fixed:fixedList,custom:customForRole};
+}
 ['SNO','NO'].forEach(function(role){
-var list=role==='SNO'?SUPERVISORS_SNO:SUPERVISORS_NO;
+var groups=buildRoleList(role);
 h+='<div style="font-size:.68rem;font-weight:700;color:'+(role==='SNO'?'#1565c0':'#00695c')+';padding:4px 0 4px;text-transform:uppercase;letter-spacing:.5px">'+role+'</div>';
-list.forEach(function(nm){
+function renderRow(nm,isCustom){
 var pin=curPins[nm]||'—';
 h+='<div style="background:#fff;border-radius:10px;margin-bottom:6px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.07);display:flex;align-items:center;gap:10px">';
-h+='<div style="flex:1;font-weight:600;font-size:.82rem">'+escHTML(nm)+'</div>';
-h+='<div style="font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:4px;color:#1565c0;min-width:50px;text-align:center">'+escHTML(pin)+'</div>';
-h+='<button onclick="resetSupPin(this.dataset.nm)" data-nm="'+escHTML(nm)+'" style="background:#ffebee;color:#c62828;border:none;border-radius:6px;padding:6px 10px;font-size:.68rem;font-weight:700;cursor:pointer">🔄</button>';
+h+='<div style="flex:1;min-width:0">';
+h+='<div style="font-weight:600;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(nm)+(isCustom?' <span style="background:#f3e5f5;color:#6a1b9a;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;letter-spacing:.5px">CUSTOM</span>':'')+'</div>';
 h+='</div>';
+h+='<div style="font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:4px;color:#1565c0;min-width:50px;text-align:center">'+escHTML(pin)+'</div>';
+if(isCustom){
+h+='<button onclick="removeSupPin(this.dataset.nm)" data-nm="'+escHTML(nm)+'" title="Remove supervisor" style="background:#ffebee;color:#c62828;border:none;border-radius:6px;padding:6px 10px;font-size:.68rem;font-weight:700;cursor:pointer">🗑</button>';
+}else{
+h+='<button onclick="resetSupPin(this.dataset.nm)" data-nm="'+escHTML(nm)+'" title="Reset PIN" style="background:#ffebee;color:#c62828;border:none;border-radius:6px;padding:6px 10px;font-size:.68rem;font-weight:700;cursor:pointer">🔄</button>';
+}
+h+='</div>';
+}
+groups.fixed.forEach(function(nm){renderRow(nm,false);});
+groups.custom.forEach(function(nm){renderRow(nm,true);});
 });
-});
-h+='<div style="font-size:.75rem;font-weight:700;color:#6a1b9a;text-transform:uppercase;letter-spacing:.8px;padding:14px 0 8px">➕ Add Supervisor from Staff List</div>';
+h+='<div style="font-size:.75rem;font-weight:700;color:#6a1b9a;text-transform:uppercase;letter-spacing:.8px;padding:14px 0 8px">➕ Add Supervisor</div>';
 h+='<div style="background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 6px rgba(0,0,0,.08)">';
-h+='<div style="font-size:.75rem;color:#757575;margin-bottom:8px">Select staff member to assign as supervisor with new PIN</div>';
-h+='<select id="newSupSelect" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.85rem;background:#fafafa;margin-bottom:10px"><option value="">-- Select Staff Member --</option>';
-STAFF.forEach(function(s){h+='<option value="'+s+'">'+s+'</option>';});
+h+='<div style="font-size:.75rem;color:#757575;margin-bottom:8px">Select from staff list <b>OR</b> type a new name below</div>';
+h+='<select id="newSupSelect" onchange="document.getElementById(\'newSupName\').value=this.value" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.85rem;background:#fafafa;margin-bottom:8px"><option value="">-- Select from Staff List --</option>';
+getAllStaffList().forEach(function(s){h+='<option value="'+s+'">'+s+'</option>';});
 h+='</select>';
+h+='<input id="newSupName" type="text" placeholder="Or type full name (UPPERCASE)" oninput="this.value=this.value.toUpperCase()" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.85rem;background:#fafafa;margin-bottom:10px;box-sizing:border-box">';
 h+='<select id="newSupRole" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:.85rem;background:#fafafa;margin-bottom:10px"><option value="NO">Nursing Officer (NO)</option><option value="SNO">Senior Nursing Officer (SNO)</option></select>';
-h+='<button onclick="generateNewSupPIN()" style="width:100%;background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff;border:none;border-radius:8px;padding:11px;font-size:.82rem;font-weight:700;cursor:pointer">🔑 Generate PIN</button>';
+h+='<button onclick="generateNewSupPIN()" style="width:100%;background:linear-gradient(135deg,#6a1b9a,#8e24aa);color:#fff;border:none;border-radius:8px;padding:11px;font-size:.82rem;font-weight:700;cursor:pointer">🔑 Generate PIN & Save</button>';
 h+='</div>';
 h+='<div style="font-size:.75rem;font-weight:700;color:#c62828;text-transform:uppercase;letter-spacing:.8px;padding:14px 0 8px">⚠️ Danger Zone</div>';
 h+='<button onclick="clearAllHistory()" style="width:100%;background:#fff;color:#c62828;border:2px solid #ffcdd2;border-radius:10px;padding:11px;font-size:.8rem;font-weight:700;cursor:pointer">🗑 Clear All Round History</button>';
@@ -2193,15 +2244,57 @@ body.innerHTML=h;
 }
 
 function generateNewSupPIN(){
-var nm=document.getElementById('newSupSelect').value;
+// Get name from manual input first, fallback to dropdown
+var nm=(document.getElementById('newSupName').value||'').trim().toUpperCase();
+if(!nm)nm=document.getElementById('newSupSelect').value;
 var role=document.getElementById('newSupRole').value;
-if(!nm){showModal('⚠️','Select Staff','Please select a staff member first.');return;}
+if(!nm){showModal('⚠️','Name Required','Please select a staff member from the list OR type a new name.');return;}
+if(nm.length<3){showModal('⚠️','Invalid Name','Name must be at least 3 characters long.');return;}
+// Check if already exists
 var map=getSupPins();
+if(map[nm]){
+showModal('⚠️','Already Exists','<b>'+nm+'</b> already has a PIN assigned. Remove the existing entry first if you want to regenerate.',false,null,null,'OK');
+return;
+}
+// Generate new 4-digit PIN
 var newPin=String(Math.floor(1000+Math.random()*9000));
-map[nm]=newPin;
-saveSupPins(map);
-SUPERVISOR_PINS=map;
-showModal('✅','PIN Generated',nm+' assigned as '+role+'.<br><b style="font-family:monospace;font-size:1.3rem;letter-spacing:4px">'+newPin+'</b>',false,null,null,'OK');
+// Save with role (object format) — backward compatible
+var customs={};
+try{customs=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');}catch(e){}
+customs[nm]={pin:newPin,role:role};
+try{localStorage.setItem('aiims_sup_pins_v2',JSON.stringify(customs));}catch(e){}
+// Update in-memory map (flat PIN format for login compatibility)
+SUPERVISOR_PINS=getSupPins();
+// Try to sync to cloud (Google Sheet) — non-blocking
+syncPinsToCloud(customs);
+// Success message + auto-refresh the panel
+showModal('✅','Supervisor Added','<b>'+nm+'</b><br><span style="color:#666;font-size:.82rem">'+role+(role==='NO'?' (Nursing Officer)':' (Senior Nursing Officer)')+'</span><br><br><span style="color:#666;font-size:.78rem">PIN:</span><br><b style="font-family:monospace;font-size:1.5rem;letter-spacing:6px;color:#6a1b9a">'+newPin+'</b><br><br><span style="color:#999;font-size:.72rem">Note this PIN — needed to log in</span>',false,null,function(){
+// Refresh the settings panel to show updated list
+if(typeof icShowSettings==='function')icShowSettings();
+},'OK');
+}
+
+function removeSupPin(nm){
+showModal('⚠️','Remove Supervisor?','Are you sure you want to remove <b>'+nm+'</b>?<br><br><span style="color:#999;font-size:.75rem">Their existing rounds will stay in history. They just won\'t be able to log in anymore.</span>',true,function(){
+var customs={};
+try{customs=JSON.parse(localStorage.getItem('aiims_sup_pins_v2')||'{}');}catch(e){}
+delete customs[nm];
+try{localStorage.setItem('aiims_sup_pins_v2',JSON.stringify(customs));}catch(e){}
+SUPERVISOR_PINS=getSupPins();
+syncPinsToCloud(customs);
+showModal('✅','Removed',nm+' has been removed.',false,null,function(){
+if(typeof icShowSettings==='function')icShowSettings();
+},'OK');
+},null,'Yes, Remove');
+}
+
+function syncPinsToCloud(customs){
+// Sync custom PINs to Google Sheet — silent, non-blocking
+try{
+var url=localStorage.getItem('aiims_backend_url')||(typeof BACKEND_URL!=='undefined'?BACKEND_URL:'');
+if(!url)return;
+fetch(url,{method:'POST',body:JSON.stringify({action:'savePins',data:customs})}).catch(function(){});
+}catch(e){}
 }
 
 function icShowReports(){
@@ -2912,6 +3005,145 @@ function saveCloudUrl() {
 if (isCloudEnabled()) {
   setTimeout(function() { cloudPullHistory(); }, 2000);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-RESUME ROUND ON PAGE REFRESH
+// ═══════════════════════════════════════════════════════════════
+// Saves a marker of the active round whenever data changes, and
+// automatically detects + offers to resume on page reload.
+var ACTIVE_KEY = 'aiims_active_round';
+
+// Save active round marker (called on every meaningful change)
+function markActiveRound(){
+  try{
+    var sup=document.getElementById('rName').value||'';
+    var dt=document.getElementById('rDate').value||'';
+    var tm=document.getElementById('rTime').value||'';
+    var desig=document.getElementById('rDesig')?(document.getElementById('rDesig').value||''):'';
+    var ward=document.getElementById('rWard')?(document.getElementById('rWard').value||''):'';
+    if(!sup||!dt||!roundShift)return;
+    var bedsDone=Object.keys(bedData).filter(function(k){return bedData[k]&&!bedData[k].vacant;}).length;
+    if(bedsDone===0)return; // Don't mark until at least 1 bed is saved
+    localStorage.setItem(ACTIVE_KEY,JSON.stringify({
+      supervisor:sup,date:dt,time:tm,desig:desig,ward:ward,
+      shift:roundShift,bedsDone:bedsDone,pin:roundPIN||'',
+      savedAt:Date.now()
+    }));
+  }catch(e){}
+}
+
+// Clear active round marker (called when round is finalized or discarded)
+function clearActiveRound(){
+  try{localStorage.removeItem(ACTIVE_KEY);}catch(e){}
+}
+
+// Hook into existing save points so the marker stays fresh
+(function(){
+  var origSaveSession=window.saveSessionData;
+  window.saveSessionData=function(){
+    if(typeof origSaveSession==='function')origSaveSession();
+    markActiveRound();
+  };
+})();
+
+// Check on page load — if an unfinished round exists, offer to resume
+function checkAndResumeRound(){
+  var raw;try{raw=localStorage.getItem(ACTIVE_KEY);}catch(e){return;}
+  if(!raw)return;
+  var info;try{info=JSON.parse(raw);}catch(e){clearActiveRound();return;}
+  if(!info||!info.supervisor||!info.shift||!info.date)return;
+  // Verify the actual session data still exists
+  var sessionKey='aiims_session_'+info.supervisor.replace(/\s+/g,'_')+'_'+info.shift+'_'+info.date;
+  var sessionData;try{sessionData=JSON.parse(localStorage.getItem(sessionKey));}catch(e){}
+  if(!sessionData||!sessionData.bedData||Object.keys(sessionData.bedData).length===0){
+    clearActiveRound();return;
+  }
+  // Calculate how long ago
+  var ago=Date.now()-(info.savedAt||0);
+  var agoTxt=ago<60000?'just now':
+             ago<3600000?Math.floor(ago/60000)+' min ago':
+             ago<86400000?Math.floor(ago/3600000)+' hr ago':
+             Math.floor(ago/86400000)+' day(s) ago';
+  // Show resume modal
+  var msg='<div style="text-align:left;font-size:.88rem;line-height:1.6">';
+  msg+='<b style="color:#1565c0">'+escHTML(info.supervisor)+'</b><br>';
+  msg+='<span style="color:#666">'+escHTML(info.shift)+' shift · '+escHTML(info.date)+'</span><br>';
+  msg+='<span style="color:#00695c;font-weight:700">'+info.bedsDone+' bed(s) already assessed</span><br>';
+  msg+='<span style="color:#999;font-size:.78rem">Last saved: '+agoTxt+'</span>';
+  msg+='</div>';
+  setTimeout(function(){
+    showModal('🔄','Resume Previous Round?',msg,true,function(){
+      // RESUME — reload the round directly into supervision mode
+      autoResumeRound(info,sessionData);
+      closeModal();
+    },function(){
+      // DISCARD — clear the marker but keep session data (user might still want it later)
+      clearActiveRound();
+      closeModal();
+    },'Yes, Resume','Start Fresh');
+  },800);
+}
+
+// Direct resume — bypass the supervisor login, jump straight into supervision
+function autoResumeRound(info,sessionData){
+  try{
+    // Restore round header fields
+    document.getElementById('rName').value=info.supervisor;
+    document.getElementById('rDate').value=info.date;
+    if(info.time)document.getElementById('rTime').value=info.time;
+    var desigEl=document.getElementById('rDesig');if(desigEl&&info.desig)desigEl.value=info.desig;
+    var wardEl=document.getElementById('rWard');if(wardEl&&info.ward)wardEl.value=info.ward;
+    // Restore round state
+    roundShift=info.shift;
+    if(info.pin)roundPIN=info.pin;
+    bedData=sessionData.bedData||{};
+    if(sessionData.curBed)curBed=sessionData.curBed;
+    if(sessionData.curShift)curShift=sessionData.curShift;
+    if(sessionData.roundElapsed)roundElapsed=sessionData.roundElapsed;
+    ls('data',bedData);
+    // Sync supervisor designation if available
+    if(typeof onSupervisorChange==='function')onSupervisorChange();
+    // Enter supervision mode directly
+    APP_MODE='supervision';
+    if(typeof updModeBar==='function')updModeBar();
+    var bb=document.getElementById('backMenuBtn');if(bb)bb.style.display='';
+    // Hide any overlays
+    var ovIds=['supSetupOv','panelOv','icOv','pwOv'];
+    ovIds.forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('show');});
+    // Lock header (already in active round)
+    if(typeof lockRoundHeader==='function')lockRoundHeader();
+    // Restore timer if applicable
+    if(roundElapsed>0&&typeof startTimer==='function'){
+      var sec=Math.floor(roundElapsed/1000);var m=Math.floor(sec/60);var s=sec%60;
+      var t=document.getElementById('fpTimer');
+      if(t){t.textContent='⏱ '+m+':'+(s<10?'0':'')+s;t.style.display='';}
+      startTimer();
+    }
+    // Re-render UI
+    if(typeof renderGrid==='function')renderGrid();
+    if(typeof updSum==='function')updSum();
+    if(typeof buildPageNav==='function')buildPageNav();
+    if(typeof updBedsOverview==='function')updBedsOverview();
+    var doneBeds=Object.keys(bedData).filter(function(k){return bedData[k]&&!bedData[k].vacant;}).length;
+    showSyncToast('✅ Round resumed — '+doneBeds+' bed(s) restored','ok',4000);
+  }catch(e){
+    showModal('⚠️','Resume Failed','Could not restore previous round automatically. Please use the supervisor login to resume manually.');
+  }
+}
+
+// Patch startNewRound and finalize-save to clear the active marker
+(function(){
+  var origStartNew=window.startNewRound;
+  window.startNewRound=function(){
+    clearActiveRound();
+    if(typeof origStartNew==='function')origStartNew();
+  };
+})();
+
+// Run check on page load (after a short delay to ensure all DOM is ready)
+window.addEventListener('load',function(){
+  setTimeout(checkAndResumeRound,1200);
+});
 </script>
 <!-- Sync Toast -->
 <div class="sync-toast" id="syncToast"></div>
